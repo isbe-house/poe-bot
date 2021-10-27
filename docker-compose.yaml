@@ -1,0 +1,65 @@
+version: '3.8'
+
+services:
+    web:
+        build:
+            context: .
+            dockerfile: Dockerfiles/web.Dockerfile
+        restart: "unless-stopped"
+        volumes:
+            - ./:/usr/src/app/
+        container_name: "PoeBotWebserver"
+        working_dir: /usr/src/app/web
+        command: uvicorn --host 0.0.0.0 --reload main:app
+        user: "${UID}:${GID}"
+        ports:
+            - "80:8000"
+        environment:
+            - PYTHONDONTWRITEBYTECODE=1
+
+    trade-slurp:
+        build:
+            context: .
+            dockerfile: Dockerfiles/trade_slurp.Dockerfile
+        volumes:
+            - ./:/usr/src/app/
+            - ./poe_lib/:/usr/local/lib/python3.9/site-packages/poe_lib/:ro
+        user: "${UID}:${GID}"
+        command: python -m trade_slurp
+        environment:
+            - PYTHONDONTWRITEBYTECODE=1
+            - "MONGO_URL=mongodb://root:root@mongo:27017/admin"
+        depends_on:
+            - mongo
+            - mongo-express
+
+    poe-lib-test:
+        build:
+            context: .
+            dockerfile: Dockerfiles/tests.Dockerfile
+        volumes:
+            - ./:/usr/src/app/
+        user: "${UID}:${GID}"
+        environment:
+            - PYTHONDONTWRITEBYTECODE=1
+
+    # For local development.
+    mongo:
+        image: mongo:5.0.3
+        restart: always
+        command: --wiredTigerCacheSizeGB 4.0
+        environment:
+            MONGO_INITDB_ROOT_USERNAME: root
+            MONGO_INITDB_ROOT_PASSWORD: root
+
+    # For local development.
+    mongo-express:
+        image: mongo-express
+        restart: always
+        ports:
+            - 8200:8081
+        environment:
+            ME_CONFIG_MONGODB_ADMINUSERNAME: root
+            ME_CONFIG_MONGODB_ADMINPASSWORD: root
+            # ME_CONFIG_BASICAUTH_USERNAME: jmurray
+            # ME_CONFIG_BASICAUTH_PASSWORD: Xyo2n63EZ7GI2Nit
