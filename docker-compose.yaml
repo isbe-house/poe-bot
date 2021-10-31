@@ -1,5 +1,17 @@
 version: '3.8'
 
+secrets:
+    client_id:
+        file: ./secrets/client_id.secret
+    client_secret:
+        file: ./secrets/client_secret.secret
+    client_token_json:
+        file: ./secrets/client_token.secret
+    discord_bot_token:
+        file: ./secrets/discord_bot_token.secret
+    discord_application_id:
+        file: ./secrets/discord_application_id.secret
+
 services:
     web:
         build:
@@ -8,30 +20,59 @@ services:
         restart: "unless-stopped"
         volumes:
             - ./:/usr/src/app/
-        container_name: "PoeBotWebserver"
+            - /etc/letsencrypt/live/poe.isbe.house/:/run/secrets/ssl/:ro
+            - /etc/letsencrypt/archive/poe.isbe.house/:/run/archive/poe.isbe.house/:ro
+            - ./poe_lib/:/usr/local/lib/python3.9/site-packages/poe_lib/:ro
         working_dir: /usr/src/app/web
-        command: uvicorn --host 0.0.0.0 --reload main:app
+        command: uvicorn --host 0.0.0.0 --reload main:app --port 8443 --ssl-certfile /run/secrets/ssl/fullchain.pem --ssl-keyfile /run/secrets/ssl/privkey.pem
         user: "${UID}:${GID}"
         ports:
-            - "80:8000"
+            - "443:8443"
         environment:
             - PYTHONDONTWRITEBYTECODE=1
+            - "MONGO_URL=mongodb://root:root@mongo:27017/admin"
+        secrets:
+            - client_id
+            - client_secret
 
     trade-slurp:
         build:
             context: .
             dockerfile: Dockerfiles/trade_slurp.Dockerfile
+        restart: "unless-stopped"
         volumes:
             - ./:/usr/src/app/
             - ./poe_lib/:/usr/local/lib/python3.9/site-packages/poe_lib/:ro
         user: "${UID}:${GID}"
-        command: python -m trade_slurp
+        command: python -u -m trade_slurp
         environment:
             - PYTHONDONTWRITEBYTECODE=1
             - "MONGO_URL=mongodb://root:root@mongo:27017/admin"
         depends_on:
             - mongo
-            - mongo-express
+            - influx
+        secrets:
+        - client_id
+        - client_secret
+        - client_token_json
+
+    discord-bot:
+        build:
+            context: .
+            dockerfile: Dockerfiles/discord_bot.Dockerfile
+        volumes:
+            - ./:/usr/src/app/
+        user: "${UID}:${GID}"
+        command: python -u -m discord_bot
+        environment:
+            - PYTHONDONTWRITEBYTECODE=1
+            - "MONGO_URL=mongodb://root:root@mongo:27017/admin"
+        depends_on:
+            - mongo
+        secrets:
+            - client_id
+            - discord_bot_token
+            - discord_application_id
 
     poe-lib-test:
         build:
@@ -42,24 +83,56 @@ services:
         user: "${UID}:${GID}"
         environment:
             - PYTHONDONTWRITEBYTECODE=1
+            - "MONGO_URL=mongodb://test-mongo:27017"
+        depends_on:
+            - test-mongo
+
+    test-mongo:
+        image: mongo:5.0.3
+        restart: "no"
+        command: --wiredTigerCacheSizeGB 5.0
+        mem_limit: 10737418240
 
     # For local development.
     mongo:
         image: mongo:5.0.3
         restart: always
-        command: --wiredTigerCacheSizeGB 4.0
+        command: --wiredTigerCacheSizeGB 0.5
+        volumes:
+            - /home/jmurray/Documents/poe-bot-db:/data/db
         environment:
             MONGO_INITDB_ROOT_USERNAME: root
             MONGO_INITDB_ROOT_PASSWORD: root
+        mem_limit: 10737418240
 
     # For local development.
     mongo-express:
         image: mongo-express
         restart: always
         ports:
-            - 8200:8081
+            - "127.0.0.1:8222:8081"
         environment:
             ME_CONFIG_MONGODB_ADMINUSERNAME: root
             ME_CONFIG_MONGODB_ADMINPASSWORD: root
-            # ME_CONFIG_BASICAUTH_USERNAME: jmurray
-            # ME_CONFIG_BASICAUTH_PASSWORD: Xyo2n63EZ7GI2Nit
+            ME_CONFIG_MONGODB_URL: "mongodb://root:root@mongo:27017/"
+        depends_on:
+            - mongo
+
+    influx:
+        image: influxdb:1.8
+        ports:
+            - 127.0.0.1:8086:8086
+        volumes:
+            - ./influx/influx.conf:/etc/influxdb/influxdb.conf:ro
+            - /home/jmurray/Documents/poe-bot-influx:/var/lib/influxdb
+            - ./influx/:/root/influx/
+
+    grafana:
+        image: grafana/grafana:8.2.2
+        ports:
+            - 3000:3000
+        volumes:
+            - /home/jmurray/Documents/poe-bot-grafana:/var/lib/grafana
+            - ./grafana/grafana.ini:/etc/grafana/grafana.ini:ro
+        depends_on:
+            - influx

@@ -9,13 +9,17 @@ export TWINE_PASSWORD=${TWINE_PASSWORD:-"UNDEFINED"}
 up: ## Start all containers
 	docker-compose \
         -f  docker-compose.yaml \
-        up -d --build
+        up -d --build trade-slurp grafana web discord-bot mongo-express
 
-run: ## Run container connected
-	make down
+run-discord-bot: ## Run container connected
 	docker-compose \
 		-f  docker-compose.yaml \
-		run --rm --service-ports web
+		run --rm discord-bot
+
+debug-discord-bot: ## Start interactive python shell to debug with
+	docker-compose \
+		-f docker-compose.yaml \
+		run --rm discord-bot /bin/bash
 
 run-trade-slurp: ## Run container connected
 	docker-compose \
@@ -47,7 +51,7 @@ logs: ## Display logs (follow)
         -f  docker-compose.yaml \
         logs --follow --tail=20
 
-debug: ## Start interactive python shell to debug with
+debug-web: ## Start interactive python shell to debug with
 	docker-compose \
 		-f docker-compose.yaml \
 		run --rm web /bin/bash
@@ -59,16 +63,18 @@ debug: ## Start interactive python shell to debug with
 
 test: ## Start a jupyter environment for debugging and such
 	make test-poe-lib-pytest
+	docker-compose -f docker-compose.yaml rm -fsv test-mongo
 
 test-poe-lib-pytest:
 	docker-compose \
 		-f  docker-compose.yaml \
 		run --rm poe-lib-test \
-		python -m pytest --cov=poe_lib --durations=5 -vv --color=yes tests
-	docker-compose \
-		-f  docker-compose.yaml \
-		run --rm poe-lib-test \
-		coverage html
+		python -m pytest --cov-report term:skip-covered --cov=poe_lib --color=yes tests
+	# Run with -x if you need to stop at first failure.
+	# docker-compose \
+	# 	-f  docker-compose.yaml \
+	# 	run --rm poe-lib-test \
+	# 	coverage html
 
 
 ######################################################################################################################################################
