@@ -1,5 +1,7 @@
 from typing import Any, Optional
 
+from ..mongo import Mongo
+from ..influx import Influx
 from .object_base_class import BasePOEObject
 
 class Character(BasePOEObject):
@@ -34,3 +36,36 @@ class Character(BasePOEObject):
             'jewels': None,
             'passives': None,
         }
+
+    def save(self):
+        client = Mongo.client
+        data = {
+            'id': self.id,
+            'name': self.name,
+            'class': self.class_,
+            'league': self.league,
+            'level': self.level,
+            'experience': self.experience,
+        }
+
+        old_data = client.characters.characters.find_one_and_update(
+            {'id': data['id']},
+            {'$set': {**data}},
+            upsert=True,
+        )
+
+        if (old_data is not None) and (self.experience == old_data['experience']):
+            return
+
+        print('influx_write')
+        Influx.write(
+            'characters',
+            'stats',
+            {
+                'level': self.level,
+                'experience': self.experience,
+            },
+            {
+                'char_name': ''.join([i if ord(i) < 128 else '' for i in self.name]),
+            },
+        )

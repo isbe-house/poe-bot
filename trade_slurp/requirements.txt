@@ -1,3 +1,4 @@
 httpx
 pymongo
 tqdm
+motor

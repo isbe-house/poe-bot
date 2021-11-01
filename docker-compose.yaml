@@ -97,7 +97,7 @@ services:
     mongo:
         image: mongo:5.0.3
         restart: always
-        command: --wiredTigerCacheSizeGB 0.5
+        command: --wiredTigerCacheSizeGB 5.0
         volumes:
             - /home/jmurray/Documents/poe-bot-db:/data/db
         environment:
@@ -136,3 +136,18 @@ services:
             - ./grafana/grafana.ini:/etc/grafana/grafana.ini:ro
         depends_on:
             - influx
+
+    jupyter:
+        build:
+            context: .
+            dockerfile: Dockerfiles/jupyter.Dockerfile
+        ports:
+            - "127.0.0.1:8888:8888"
+        user: "${UID}:${GID}"
+        volumes:
+            - ./:/home/jovyan/poe_bot/
+            - ./poe_lib/:/opt/conda/lib/python3.9/site-packages/poe_lib/:ro
+        command: "start-notebook.sh --NotebookApp.token='' --NotebookApp.password='' --ip=0.0.0.0 --ServerApp.root_dir='/home/jovyan/'"
+        environment:
+            - JUPYTER_ENABLE_LAB=yes
+            - "MONGO_URL=mongodb://root:root@mongo:27017/admin"

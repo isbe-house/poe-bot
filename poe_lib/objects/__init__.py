@@ -1,0 +1,1 @@
+from .notes_parser import Note

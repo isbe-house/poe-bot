@@ -1,4 +1,4 @@
-dyscord==0.4.2
+dyscord==0.4.4
 pymongo
 httpx
 cachetools

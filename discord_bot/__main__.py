@@ -36,11 +36,23 @@ async def my_ready(ready, _, client):
         description='Path of exile.',
         type=dyscord.objects.interactions.enumerations.COMMAND_TYPE.CHAT_INPUT,
     )
-    register_command.add_option_sub_command(name='register', description='Register with the bot.')
-    register_command.add_option_sub_command(name='profile', description='Print your profile.')
-    register_command.validate()
-    await register_command.register_globally()
+    sc = register_command.add_option_sub_command(name='register', description='Register with the bot.')
 
+    sc = register_command.add_option_sub_command(name='profile', description='Print your profile.')
+
+    sc = register_command.add_option_sub_command(name='character', description='Show off your character.')
+    sc.add_option_typed(sc.COMMAND_OPTION.STRING, name='name', description='Character name.')
+
+    sc = register_command.add_option_sub_command(name='price_stash', description='Calculate estimated value of a stash.')
+    sc.add_option_typed(sc.COMMAND_OPTION.STRING, name='name', description='Stash name.')
+    sco = sc.add_option_typed(sc.COMMAND_OPTION.STRING, name='league', description='League stash is in')
+    sco.add_choice('Standard', 'standard')
+    sco.add_choice('Hardcore', 'standard')
+
+    sc = register_command.add_option_sub_command(name='test', description='Test command, please ignore.')
+
+    register_command.validate()
+    await register_command.register_to_guild('346094316428591104')
 
     # print('Remove global commands')
     # commands = await API.get_global_application_commands()
@@ -53,8 +65,6 @@ async def my_ready(ready, _, client):
 
 Mongo.connect()
 
-dyscord.helper.CommandHandler.register_global_callback('register', registration_callback)
-dyscord.helper.CommandHandler.register_global_callback('profile', profile_callback)
-dyscord.helper.CommandHandler.register_global_callback('poe', poe_callback)
+dyscord.helper.CommandHandler.register_guild_callback('poe', poe_callback)
 
 client.run()

@@ -21,6 +21,10 @@ class BasePOEObject(ABC):
         if data is not None and isinstance(data, dict):
             self.from_dict(data)
 
+    def save(self):
+        '''Try to write yourself to the Mongo DB'''
+        pass
+
     def from_dict(self, data: dict) -> 'BasePOEObject':
         '''Parse an object from a dictionary and return it.'''
         self._auto_dict(data)

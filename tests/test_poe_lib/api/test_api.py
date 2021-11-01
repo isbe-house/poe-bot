@@ -1,11 +1,13 @@
 from unittest import mock
 from unittest.mock import patch, MagicMock
-from ..fixtures import mock_httpx_get
+from ..fixtures import mock_httpx_async
+import pytest
 
-def test_basic(mock_httpx_get):
+
+@pytest.mark.asyncio
+async def test_basic(mock_httpx_async):
+    mock_httpx_async.return_value.get.return_value.json.side_effect = [{"characters":[{"here": "there"}]}]
     from poe_lib.api import API
 
-    mock_httpx_get.return_value.json.side_effect = ['FOO']
-
     x = API()
-    print('RETURNED:', x.get_characters())
+    print('RETURNED:', await x.get_characters())

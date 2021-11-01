@@ -1,3 +1,5 @@
 httpx
 pymongo
 cachetools
+motor
+tqdm

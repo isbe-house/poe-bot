@@ -20,32 +20,37 @@ async def ingest():
         next_change_id = next_change_id['settings']['next_change_id']
     api = poe_lib.api.API()
 
-    mongo.trade.items.create_index('id')
+    print('Build item indexes.')
+    mongo.trade.items.create_index([('id', 'hashed')])
     mongo.trade.items.create_index('league')
-    mongo.trade.items.create_index('_stash_id')
+    mongo.trade.items.create_index([('_stash_id', 'hashed')])
+    mongo.trade.items.create_index('extended.category')
+    mongo.trade.items.create_index('note')
 
+    print('Build stash indexes.')
     mongo.trade.stashes.create_index('id')
     mongo.trade.stashes.create_index('_updatedOn')
     mongo.trade.stashes.create_index('_insertedOn')
     mongo.trade.stashes.create_index('accountName')
     mongo.trade.stashes.create_index('league')
+    mongo.trade.stashes.create_index('_item_ids')
 
     grand_total_stashes = 0
     grand_total_items = 0
     start_time = time.time()
-    error_delay = 60
+    error_delay = 1
     while True:
         t1 = time.time()
         try:
             r = await api.public_stash_tabs(next_change_id)
-        except (httpx.HTTPStatusError, httpx.ReadTimeout) as e:
+        except httpx.HTTPError as e:
             print(e)
-            print(f'\nGot a status error, wait {error_delay:.0f} seconds.\n')
+            print(f'\nGot a status error [{e}] [{type(e)}], wait [{error_delay:.0f}] seconds.\n')
             await asyncio.sleep(error_delay)
             error_delay *= 1.5
             continue
 
-        error_delay = 60
+        error_delay = 1
         next_change_id = r['next_change_id']
         total_items = 0
         total_stashes = 0
@@ -131,7 +136,7 @@ async def ingest():
 
 
         for n, value in enumerate([int(x) for x in next_change_id.split('-')]):
-            poe_lib.Influx.write('trade_api', 'slurp', {'next_change_id': value}, {'shard': n+1})
+            poe_lib.Influx.write('trade_api', 'slurp', {'next_change_id': value}, {'shard': n+1, 'source': 'local'})
 
         poe_lib.Influx.write('trade_api', 'ingests', {'items': total_items, 'stashes': total_stashes})
 

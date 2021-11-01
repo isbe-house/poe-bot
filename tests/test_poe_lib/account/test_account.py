@@ -14,7 +14,7 @@ def test_basic():
 def test_magics():
     obj = Account(sentinel.DISCORD_ID)
 
-    assert obj.discord_user_id == sentinel.DISCORD_ID
+    assert obj.discord_user_id == str(sentinel.DISCORD_ID)
 
 def test_sopes():
 

@@ -61,6 +61,22 @@ class Account:
             upsert=True,
         )
 
+    def insert_character(self, character_id: str):
+
+        client = mongo.Mongo.client
+
+        client.accounts.discord_accounts.find_one_and_update(
+            {
+                'discord_user_id': self.discord_user_id
+            },
+            {
+                '$addToSet': {
+                    'characters': character_id
+                }
+            },
+        )
+
+
     def load(self):
         '''Load account from Mongo.'''
         self._loaded = True

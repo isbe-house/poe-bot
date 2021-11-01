@@ -143,7 +143,7 @@ class API:
         time_to_sleep = 0
 
         for rule in rules.split(','):
-            print(f'Handle limits for {rule}.')
+            # print(f'Handle limits for {rule}.')
 
             if 'Retry-After' in headers:
                 sleep_for = float(headers['Retry-After']) * 2
@@ -158,7 +158,7 @@ class API:
                 limit = [int(x) for x in limit.split(':')]
                 state = [int(x) for x in state.split(':')]
 
-                print(f'{state[0]} / {limit[0]} in {state[1]}:{limit[1]}')
+                # print(f'{state[0]} / {limit[0]} in {state[1]}:{limit[1]}')
 
                 time_to_sleep = max(time_to_sleep, state[2])
 
@@ -166,6 +166,7 @@ class API:
                 time_to_sleep = max(percent_hits * state[1] * 1.1, time_to_sleep)
 
         if time_to_sleep > 0.1:
+            print(f'Sleeping for {time_to_sleep} becuase of {rules}')
             await asyncio.sleep(time_to_sleep)
 
         return
@@ -176,7 +177,8 @@ class API:
             try:
                 r.raise_for_status()
             except Exception as e:
-                print(e)
+                print(f'Exception Raised: {e}')
+                print(f'Headers: {r.headers}')
                 raise
             await self._handle_rate_limit(r)
         return r

@@ -27,7 +27,7 @@ async def main():
 
     while True:
 
-        await asyncio.sleep(60)
+        await asyncio.sleep(5)
 
         for task_key, task in tasks.items():
             if task.done():

@@ -31,6 +31,26 @@ debug-trade-slurp: ## Start interactive python shell to debug with
 		-f docker-compose.yaml \
 		run --rm trade-slurp /bin/bash
 
+run-influx: ## Run container connected
+	docker-compose \
+		-f  docker-compose.yaml \
+		run --rm influx
+
+run-jupyter: ## Run container connected
+	docker-compose \
+		-f  docker-compose.yaml \
+		run --rm --service-ports jupyter
+
+debug-influx: ## Start interactive python shell to debug with
+	docker-compose \
+		-f docker-compose.yaml \
+		run --rm influx /bin/bash
+
+exec-influx: ## Start interactive python shell to debug with
+	docker-compose \
+		-f docker-compose.yaml \
+		exec influx /bin/bash
+
 build:
 	docker-compose \
 		-f docker-compose.yaml \

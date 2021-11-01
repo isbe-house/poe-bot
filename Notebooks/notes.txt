@@ -1,0 +1,7 @@
+1/6
+6.9
+~b/o  chaos
+~price  alch
+~price  chaos
+~price  exalted
+~price 1/23 
