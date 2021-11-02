@@ -3,7 +3,7 @@ import re
 
 class Note:
 
-    currency_matcher = re.compile('[~-]?(b\/o|price)\s?([\d\.\/ ]+)\s([a-zA-Z-]+)')
+    currency_matcher = re.compile(r'[~-]?(b/o|price)\s?([\d\./ ]+)\s([a-zA-Z-]+)')
 
     def __init__(self, value_string: str = None):
         self.value_string = value_string

@@ -10,4 +10,5 @@ async def test_basic(mock_httpx_async):
     from poe_lib.api import API
 
     x = API()
-    print('RETURNED:', await x.get_characters())
+    with pytest.warns(RuntimeWarning):
+        print('RETURNED:', await x.get_characters())

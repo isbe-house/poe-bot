@@ -20,6 +20,11 @@ async def ingest():
         next_change_id = next_change_id['settings']['next_change_id']
     api = poe_lib.api.API()
 
+
+    print('Build sold_items indexes.')
+    mongo.trade.sold_items.create_index([('id', 'hashed')])
+    mongo.trade.sold_items.create_index('_soldOn')
+
     print('Build item indexes.')
     mongo.trade.items.create_index([('id', 'hashed')])
     mongo.trade.items.create_index('league')
@@ -153,3 +158,5 @@ async def ingest():
                 'mongo_total_items': mongo_total_items,
             }
         )
+
+        await asyncio.sleep(1)

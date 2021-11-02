@@ -8,6 +8,8 @@ import poe_lib
 import pymongo
 import re
 
+from .mongo import mongo_async_client
+
 async def cleanup():
 
     MAX_ALLOWED_STASH_AGE = datetime.timedelta(days=3)
@@ -15,13 +17,14 @@ async def cleanup():
 
     mongo = pymongo.MongoClient(os.environ['MONGO_URL'])
 
+    mongo_client = await mongo_async_client()
+
     while True:
 
-        await asyncio.sleep(60)
 
         t_start = time.time()
 
-        stash_update_config = mongo.trade.config.find_one({'name': 'cleanup'})
+        stash_update_config = await mongo_client.trade.config.find_one({'name': 'cleanup'})
         if stash_update_config is None:
             stash_update_config = {
                 'name': 'cleanup',
@@ -29,7 +32,7 @@ async def cleanup():
                     'stash_update_cursor': datetime.datetime.min,
                 }
             }
-            mongo.trade.config.insert_one(stash_update_config)
+            await mongo_client.trade.config.insert_one(stash_update_config)
 
         t_config_load = time.time()
 
@@ -40,7 +43,7 @@ async def cleanup():
 
         # print('Searching for Invalid Stashes...')
         filter = {'_updatedOn': None}
-        for stash in mongo.trade.stashes.find(filter=filter).sort('_updatedOn'):
+        async for stash in mongo_client.trade.stashes.find(filter=filter).sort('_updatedOn'):
             stashes_for_deletion.append(pymongo.DeleteOne({'id': stash['id']}))
             items_for_deletion.append(pymongo.DeleteMany({'_stash_id': stash['id']}))
 
@@ -49,7 +52,7 @@ async def cleanup():
                 break
 
         filter = {'league': {'$regex': player_leagues_regex_string}}
-        for stash in mongo.trade.stashes.find(filter=filter):
+        async for stash in mongo_client.trade.stashes.find(filter=filter):
             stashes_for_deletion.append(pymongo.DeleteOne({'id': stash['id']}))
             items_for_deletion.append(pymongo.DeleteMany({'_stash_id': stash['id']}))
 
@@ -61,7 +64,7 @@ async def cleanup():
 
         # print('Searching for invalid Sales...')
         filter = {'_soldOn': None}
-        for item in mongo.trade.sold_items.find(filter=filter):
+        async for item in mongo_client.trade.sold_items.find(filter=filter):
             sold_items_for_deletion.append(pymongo.DeleteOne({'id': item['id']}))
 
             if len(sold_items_for_deletion) >= 1e4:
@@ -72,15 +75,15 @@ async def cleanup():
 
         if len(items_for_deletion):
             # print(f'Deleting {len(items_for_deletion):,d} invalid items...')
-            mongo.trade.items.bulk_write(items_for_deletion, ordered=False)
+            await mongo_client.trade.items.bulk_write(items_for_deletion, ordered=False)
         await asyncio.sleep(0)
         if len(sold_items_for_deletion):
             # print(f'Deleting {len(sold_items_for_deletion):,d} invalid sold items...')
-            mongo.trade.sold_items.bulk_write(sold_items_for_deletion, ordered=False)
+            await mongo_client.trade.sold_items.bulk_write(sold_items_for_deletion, ordered=False)
         await asyncio.sleep(0)
         if len(stashes_for_deletion):
             # print(f'Deleting {len(stashes_for_deletion):,d} invalid stashes...')
-            mongo.trade.stashes.bulk_write(stashes_for_deletion, ordered=False)
+            await mongo_client.trade.stashes.bulk_write(stashes_for_deletion, ordered=False)
 
         await asyncio.sleep(0)
 
@@ -90,7 +93,7 @@ async def cleanup():
 
         items_for_deletion = []
         stashes_for_deletion = []
-        for stash in mongo.trade.stashes.find(filter=filter).sort('_updatedOn'):
+        async for stash in mongo_client.trade.stashes.find(filter=filter).sort('_updatedOn'):
             if datetime.datetime.utcnow() - stash['_updatedOn'] > MAX_ALLOWED_STASH_AGE:
                 stashes_for_deletion.append(pymongo.DeleteOne({'id': stash['id']}))
                 items_for_deletion.append(pymongo.DeleteMany({'_stash_id': stash['id']}))
@@ -100,10 +103,10 @@ async def cleanup():
         await asyncio.sleep(0)
 
         if len(items_for_deletion):
-            mongo.trade.items.bulk_write(items_for_deletion, ordered=False)
+            await mongo_client.trade.items.bulk_write(items_for_deletion, ordered=False)
         await asyncio.sleep(0)
         if len(stashes_for_deletion):
-            mongo.trade.stashes.bulk_write(stashes_for_deletion, ordered=False)
+            await mongo_client.trade.stashes.bulk_write(stashes_for_deletion, ordered=False)
         t_end_age_off = time.time()
         await asyncio.sleep(0)
 
@@ -114,13 +117,15 @@ async def cleanup():
         sold_item_counter = 0
 
         t_start_sell_items = time.time()
-        for stash in mongo.trade.stashes.find(filter=filter).sort('_updatedOn'):
-            for item in mongo.trade.items.find({'_stash_id': stash['id']}, projection={'_id': 0}):
+        bulk_items_sold_write_queue = []
+        bulk_items_write_queue = []
+        async for stash in mongo_client.trade.stashes.find(filter=filter).sort('_updatedOn'):
+            async for item in mongo_client.trade.items.find({'_stash_id': stash['id']}, projection={'_id': 0}):
                 if item['id'] not in stash['_item_ids']:
                     if 'note' not in item or item['note'] is None:
                         item['note'] = stash['note']
                     sold_item_counter += 1
-                    mongo.trade.sold_items.find_one_and_update(
+                    update_op = pymongo.UpdateOne(
                         {'id': item['id']},
                         {
                             '$set': {
@@ -132,17 +137,26 @@ async def cleanup():
                         },
                         upsert=True
                     )
-                    mongo.trade.items.find_one_and_delete({'id': item['id']})
-
-            await asyncio.sleep(0)
+                    delete_op = pymongo.DeleteOne({'id': item['id']})
+                    bulk_items_sold_write_queue.append(update_op)
+                    bulk_items_write_queue.append(delete_op)
+            if len(bulk_items_sold_write_queue):
+                await mongo_client.trade.sold_items.bulk_write(bulk_items_sold_write_queue, ordered=False)
+                bulk_items_sold_write_queue = []
+            if len(bulk_items_write_queue):
+                await mongo_client.trade.items.bulk_write(bulk_items_write_queue, ordered=False)
+                bulk_items_write_queue = []
             behind = datetime.datetime.utcnow() - stash['_updatedOn']
+
+            await asyncio.sleep(stash_update_config['settings']['artifical_delay'])
 
             if datetime.datetime.utcnow() > last_cursor_update + datetime.timedelta(minutes = 1):
                 if behind > datetime.timedelta(minutes = 10):
                     print(f'\nCleanup is currently [{behind}] behind!')
-                mongo.trade.config.find_one_and_update({'name': 'cleanup'},{'$set': {'settings.stash_update_cursor': stash['_updatedOn']}}, upsert=True)
                 last_cursor_update = datetime.datetime.utcnow()
                 break
+
+        await mongo_client.trade.config.find_one_and_update({'name': 'cleanup'},{'$set': {'settings.stash_update_cursor': stash['_updatedOn']}}, upsert=True)
 
         t_end_sell_items = time.time()
         poe_lib.Influx.write(
@@ -164,3 +178,6 @@ async def cleanup():
                 'cleanup_lag': behind.total_seconds(),
             }
         )
+
+        if behind < datetime.timedelta(minutes = 5):
+            await asyncio.sleep(60)
