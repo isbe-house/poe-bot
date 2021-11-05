@@ -15,6 +15,8 @@ with open('/run/secrets/discord_application_id') as fp:
     application_id = fp.read()
 with open('/run/secrets/client_id') as fp:
     os.environ['POE_CLIENT_ID'] = fp.read()
+with open('/run/secrets/client_token') as fp:
+    os.environ['POE_CLIENT_TOKEN'] = fp.read()
 
 client = dyscord.client.DiscordClient(token, application_id)
 
@@ -44,10 +46,9 @@ async def my_ready(ready, _, client):
     sc.add_option_typed(sc.COMMAND_OPTION.STRING, name='name', description='Character name.')
 
     sc = register_command.add_option_sub_command(name='price_stash', description='Calculate estimated value of a stash.')
-    sc.add_option_typed(sc.COMMAND_OPTION.STRING, name='name', description='Stash name.')
-    sco = sc.add_option_typed(sc.COMMAND_OPTION.STRING, name='league', description='League stash is in')
-    sco.add_choice('Standard', 'standard')
-    sco.add_choice('Hardcore', 'standard')
+    sc.add_option_typed(sc.COMMAND_OPTION.STRING, name='league', description='League stash is in', autocomplete=True, required=True)
+    sc.add_option_typed(sc.COMMAND_OPTION.STRING, name='name', description='Stash name/regex.', required=True, autocomplete=True)
+    sc.add_option_typed(sc.COMMAND_OPTION.BOOLEAN, name='full_stats', description='Should you be provided with full information?', required=False)
 
     sc = register_command.add_option_sub_command(name='test', description='Test command, please ignore.')
 
@@ -66,5 +67,10 @@ async def my_ready(ready, _, client):
 Mongo.connect()
 
 dyscord.helper.CommandHandler.register_guild_callback('poe', poe_callback)
+
+async def raw_back(data):
+    print(data)
+
+# client._register_raw_callback(raw_back)
 
 client.run()

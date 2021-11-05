@@ -21,6 +21,7 @@ async def cleanup():
 
     while True:
 
+        last_cursor_update = datetime.datetime.utcnow()
 
         t_start = time.time()
 
@@ -47,8 +48,7 @@ async def cleanup():
             stashes_for_deletion.append(pymongo.DeleteOne({'id': stash['id']}))
             items_for_deletion.append(pymongo.DeleteMany({'_stash_id': stash['id']}))
 
-            if len(stashes_for_deletion) >= 1e5:
-                # print('Found lots of things, just delete and move on.')
+            if len(stashes_for_deletion) >= 1e4:
                 break
 
         filter = {'league': {'$regex': player_leagues_regex_string}}
@@ -56,36 +56,32 @@ async def cleanup():
             stashes_for_deletion.append(pymongo.DeleteOne({'id': stash['id']}))
             items_for_deletion.append(pymongo.DeleteMany({'_stash_id': stash['id']}))
 
-            if len(stashes_for_deletion) >= 1e5:
-                # print('Found lots of things, just delete and move on.')
+            if len(stashes_for_deletion) >= 1e4:
                 break
-
-        await asyncio.sleep(0)
 
         # print('Searching for invalid Sales...')
-        filter = {'_soldOn': None}
-        async for item in mongo_client.trade.sold_items.find(filter=filter):
+        filter = {'_soldOn': {'$lt': datetime.datetime.utcnow() - datetime.timedelta(days=1)}}
+        async for item in mongo_client.trade.sold_items.find(filter=filter, projection={'id': 1}):
             sold_items_for_deletion.append(pymongo.DeleteOne({'id': item['id']}))
-
             if len(sold_items_for_deletion) >= 1e4:
-                # print('Found lots of things, just delete and move on.')
                 break
 
-        await asyncio.sleep(0)
-
         if len(items_for_deletion):
-            # print(f'Deleting {len(items_for_deletion):,d} invalid items...')
+            print(f'Deleting {len(items_for_deletion):,d} invalid items...')
             await mongo_client.trade.items.bulk_write(items_for_deletion, ordered=False)
+            print(f'Done.')
         await asyncio.sleep(0)
         if len(sold_items_for_deletion):
             # print(f'Deleting {len(sold_items_for_deletion):,d} invalid sold items...')
             await mongo_client.trade.sold_items.bulk_write(sold_items_for_deletion, ordered=False)
+            # print(f'Done.')
         await asyncio.sleep(0)
         if len(stashes_for_deletion):
-            # print(f'Deleting {len(stashes_for_deletion):,d} invalid stashes...')
+            print(f'Deleting {len(stashes_for_deletion):,d} invalid stashes...')
             await mongo_client.trade.stashes.bulk_write(stashes_for_deletion, ordered=False)
+            print(f'Done.')
 
-        await asyncio.sleep(0)
+        ### AGE OFF ###
 
         t_start_age_off = time.time()
         # Age off old stashes, delete any items within them.
@@ -109,9 +105,6 @@ async def cleanup():
             await mongo_client.trade.stashes.bulk_write(stashes_for_deletion, ordered=False)
         t_end_age_off = time.time()
         await asyncio.sleep(0)
-
-        last_cursor_update = datetime.datetime.utcnow()
-
         filter = {'_updatedOn': {'$gte': stash_update_config['settings']['stash_update_cursor']}}
 
         sold_item_counter = 0
@@ -123,7 +116,7 @@ async def cleanup():
             async for item in mongo_client.trade.items.find({'_stash_id': stash['id']}, projection={'_id': 0}):
                 if item['id'] not in stash['_item_ids']:
                     if 'note' not in item or item['note'] is None:
-                        item['note'] = stash['note']
+                        item['note'] = stash['stash']
                     sold_item_counter += 1
                     update_op = pymongo.UpdateOne(
                         {'id': item['id']},

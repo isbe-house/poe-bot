@@ -3,22 +3,23 @@ import asyncio
 import enum
 from pprint import pprint
 import os
-from typing import List
+from typing import List, Optional
 from cachetools import TTLCache
 
 import httpx
 
 from . import __version__
 
-from .objects import character, leagues
+from .objects import character, leagues, stash
 
 class API:
 
     _call_hash = TTLCache(float('inf'), ttl=300)
 
     client_id: str = None
-    bearer_token: str = None
+    bearer_token: Optional[str] = None
     client_secret: str = None
+    client_token: str = None
 
     BASE_URL = 'https://api.pathofexile.com'
     AUTH_URL = 'https://www.pathofexile.com'
@@ -38,10 +39,12 @@ class API:
         METHOD_NOT_FOUND = 9
         UNPROCESSABLE_ENTITY = 10
 
-    def __init__(self, client_id: str = None, bearer_token: str = None, client_secret: str = None):
+    def __init__(self, client_id: str = None, bearer_token: Optional[str] = None, client_secret: str = None, client_token: str = None):
         self.client_id = client_id if client_id is not None else os.environ.get('POE_CLIENT_ID', None)
         self.bearer_token = bearer_token
+        self.client_token = client_token if client_token is not None else os.environ.get('POE_CLIENT_TOKEN', None)
         self.client_secret = client_secret if client_secret is not None else os.environ.get('POE_CLIENT_SECRET', None)
+        self.verbose = False
 
     def get_oauth_authorize_url(self, scopes: 'list[str]', state: str, redirect_url: str, prompt: str = 'consent'):
         '''Get auth URL to give to a registering user.'''
@@ -60,10 +63,10 @@ class API:
 
         return request.url
 
-    def get_client_grant(self, client_id: str, client_secret: str):
+    def get_client_grant(self):
         params = {
-            'client_id': client_id,
-            'client_secret': client_secret,
+            'client_id': self.client_id,
+            'client_secret': self.client_secret,
             'grant_type': 'client_credentials',
             'scope': 'service:psapi service:leagues',
         }
@@ -71,6 +74,7 @@ class API:
         r = httpx.post(
             self.AUTH_URL + '/oauth/token',
             json = params,
+            headers = self.get_headers(),
         )
 
         return r
@@ -124,11 +128,17 @@ class API:
     def auth_header(self) -> dict:
         return {'Authorization': f'Bearer {self.bearer_token}'}
 
-    def get_headers(self) -> dict:
+    @property
+    def client_token_header(self) -> dict:
+        return {'Authorization': f'Bearer {self.client_token}'}
+
+    def get_headers(self, use_client_token: bool = False) -> dict:
         headers = {}
         headers.update(self.user_agent)
         if self.bearer_token is not None:
             headers.update(self.auth_header)
+        if use_client_token:
+            headers.update(self.client_token_header)
         return headers
 
     async def _handle_rate_limit(self, response):
@@ -141,9 +151,12 @@ class API:
             return
 
         time_to_sleep = 0
+        if self.verbose:
+            print(headers)
 
         for rule in rules.split(','):
-            # print(f'Handle limits for {rule}.')
+            if self.verbose:
+                print(f'Handle limits for {rule}.')
 
             if 'Retry-After' in headers:
                 sleep_for = float(headers['Retry-After']) * 2
@@ -191,7 +204,7 @@ class API:
             params['id'] = next_change_id
 
         async with httpx.AsyncClient() as client:
-            method = client.get(url, params = params, headers=self.get_headers())
+            method = client.get(url, params = params, headers=self.get_headers(use_client_token=True))
             r = await self._invoke_method(method)
 
         return r.json()
@@ -204,13 +217,13 @@ class API:
             r = self._call_hash[hash_key]
         except KeyError:
             async with httpx.AsyncClient() as client:
-                method = client.get(url, params = {'realm': realm, 'type': type, 'limit': limit, 'offset': offset}, headers=self.get_headers())
+                method = client.get(url, params = {'realm': realm, 'type': type, 'limit': limit, 'offset': offset}, headers=self.get_headers(use_client_token=True))
                 r = await self._invoke_method(method)
         self._call_hash[hash_key] = r
 
         return [leagues.League(x) for x in r.json()['leagues']]
 
-    async def get_league(self,  league: str, realm: str = 'pc') -> 'leagues.League':
+    async def get_league(self, league: str, realm: str = 'pc') -> 'leagues.League':
         url = self.BASE_URL + f'/league/{league}'
 
         hash_key = (url, str(self.get_headers()), realm, league)
@@ -218,7 +231,7 @@ class API:
             r = self._call_hash[hash_key]
         except KeyError:
             async with httpx.AsyncClient() as client:
-                method = client.get(url, params = {'realm': realm, 'type': type, 'limit': limit, 'offset': offset}, headers=self.get_headers())
+                method = client.get(url, params = {'realm': realm}, headers=self.get_headers())
                 r = await self._invoke_method(method)
         self._call_hash[hash_key] = r
 
@@ -264,7 +277,7 @@ class API:
         self._call_hash[hash_key] = r
         return character.Character(r.json()['character'])
 
-    async def get_stashes(self, league: str) -> list:
+    async def get_stashes(self, league: str) -> 'List[stash.Stash]':
         url = self.BASE_URL + f"/stash/{league}"
 
         hash_key = (url, str(self.get_headers()))
@@ -275,4 +288,19 @@ class API:
                 method = client.get(url, headers=self.get_headers())
                 r = await self._invoke_method(method)
         self._call_hash[hash_key] = r
-        return r.json()
+        return [stash.Stash(x) for x in r.json()['stashes']]
+
+    async def get_stash(self, league: str, stash_id: str, substash_id: Optional[str] = None) -> 'stash.Stash':
+        url = self.BASE_URL + f"/stash/{league}/{stash_id}"
+        if substash_id is not None:
+            url += f'/{substash_id}'
+
+        hash_key = (url, str(self.get_headers()))
+        try:
+            r = self._call_hash[hash_key]
+        except KeyError:
+            async with httpx.AsyncClient() as client:
+                method = client.get(url, headers=self.get_headers())
+                r = await self._invoke_method(method)
+        self._call_hash[hash_key] = r
+        return stash.Stash(r.json()['stash'])

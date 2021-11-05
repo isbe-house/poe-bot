@@ -108,7 +108,7 @@ class Account:
             pass
 
         if self.access_token_expiration < datetime.utcnow():
-            print(self.access_token_expiration)
+            print('Access Token Expiration:', self.access_token_expiration)
             self.refresh_access_token()
             self.save()
 

@@ -9,7 +9,7 @@ export TWINE_PASSWORD=${TWINE_PASSWORD:-"UNDEFINED"}
 up: ## Start all containers
 	docker-compose \
         -f  docker-compose.yaml \
-        up -d --build trade-slurp grafana web discord-bot mongo-express
+        up -d --build trade-slurp grafana web discord-bot jupyter
 
 run-discord-bot: ## Run container connected
 	docker-compose \

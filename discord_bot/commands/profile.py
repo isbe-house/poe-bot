@@ -7,9 +7,9 @@ from ..mongo import Mongo
 async def profile_callback(interaction: dyscord.objects.interactions.Interaction):
     client = Mongo.client
 
-    discord_user_id = interaction.member.id
+    discord_user_id = interaction.member.id  # type: ignore
 
-    account = poe_lib.Account(discord_user_id)
+    account = poe_lib.Account(discord_user_id)  # type: ignore
     try:
         account.load()
     except KeyError:
@@ -29,5 +29,3 @@ async def profile_callback(interaction: dyscord.objects.interactions.Interaction
     embed.generate(f'{profile["name"]}')
     embed.add_field('Realm', profile['realm'])
     await response.send()
-
-    x = await account.get_stashes('Standard')

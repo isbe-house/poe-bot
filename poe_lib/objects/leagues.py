@@ -1,6 +1,8 @@
 from datetime import datetime
 from typing import Any, Optional, List
 
+from dateutil.parser import parse
+
 from .object_base_class import BasePOEObject
 
 class League(BasePOEObject):
@@ -17,6 +19,12 @@ class League(BasePOEObject):
     scoreEvent: bool = None
     delveEvent: bool = None
 
+    def __str__(self):
+        return self.id
+
+    def __repr__(self):
+        return self.__str__()
+
     @property
     def _auto_map(self):
         return {
@@ -24,7 +32,7 @@ class League(BasePOEObject):
             'realm': str,
             'description': str,
             'rules': [LeagueRule],
-            'registerAt': datetime,
+            'registerAt': parse,
             'event': bool,
             'url': str,
             'startAt': str,

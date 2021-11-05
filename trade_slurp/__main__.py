@@ -11,6 +11,9 @@ async def main():
     with open('/run/secrets/client_id') as fp:
         os.environ['POE_CLIENT_ID'] = fp.read()
 
+    with open('/run/secrets/client_token') as fp:
+        os.environ['POE_CLIENT_TOKEN'] = fp.read()
+
     log = poe_lib.Log()
 
     base_coros = {
@@ -33,7 +36,7 @@ async def main():
             if task.done():
                 if task.exception():
                     try:
-                        raise task.exception()
+                        raise task.exception()  # type: ignore
                     except KeyboardInterrupt:
                         raise
                     except Exception:

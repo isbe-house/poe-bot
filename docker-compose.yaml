@@ -5,7 +5,7 @@ secrets:
         file: ./secrets/client_id.secret
     client_secret:
         file: ./secrets/client_secret.secret
-    client_token_json:
+    client_token:
         file: ./secrets/client_token.secret
     discord_bot_token:
         file: ./secrets/discord_bot_token.secret
@@ -54,7 +54,7 @@ services:
         secrets:
         - client_id
         - client_secret
-        - client_token_json
+        - client_token
 
     discord-bot:
         build:
@@ -71,6 +71,7 @@ services:
             - mongo
         secrets:
             - client_id
+            - client_token
             - discord_bot_token
             - discord_application_id
 
@@ -97,6 +98,8 @@ services:
     mongo:
         image: mongo:5.0.3
         restart: always
+        ports:
+            - "127.0.0.1:27017:27017"
         command: --wiredTigerCacheSizeGB 5.0
         volumes:
             - /home/jmurray/Documents/poe-bot-db:/data/db

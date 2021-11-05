@@ -21,29 +21,57 @@ async def ingest():
     api = poe_lib.api.API()
 
 
-    print('Build sold_items indexes.')
+    print('\nBuild sold_items indexes.')
+    print('├ Create Index [id: hashed]')
     mongo.trade.sold_items.create_index([('id', 'hashed')])
+    print('├ Create Index [_soldOn]')
     mongo.trade.sold_items.create_index('_soldOn')
+    print('├ Create Index [_price]')
+    mongo.trade.sold_items.create_index('_price.unit')
+    mongo.trade.sold_items.create_index('_price.value')
+    mongo.trade.sold_items.create_index('_price.type')
+    print('├ Create Index [extended.category]')
+    mongo.trade.sold_items.create_index('extended.category')
+    print('└ Create Index [typeLine]')
+    mongo.trade.sold_items.create_index('typeLine')
 
-    print('Build item indexes.')
+    print('\nBuild item indexes.')
+    print('├ Create Index [id hashed]')
     mongo.trade.items.create_index([('id', 'hashed')])
+    print('├ Create Index [league]')
     mongo.trade.items.create_index('league')
+    print('├ Create Index [_stash_id: hashed]')
     mongo.trade.items.create_index([('_stash_id', 'hashed')])
+    print('├ Create Index [extended.category]')
     mongo.trade.items.create_index('extended.category')
+    print('├ Create Index [note]')
     mongo.trade.items.create_index('note')
+    print('├ Create Index [_price]')
+    mongo.trade.items.create_index('_price.unit')
+    mongo.trade.items.create_index('_price.value')
+    mongo.trade.items.create_index('_price.type')
+    print('└ Create Index [typeLine]')
+    mongo.trade.items.create_index('typeLine')
 
-    print('Build stash indexes.')
+    print('\nBuild stash indexes.')
+    print('├ Create Index [id]')
     mongo.trade.stashes.create_index('id')
+    print('├ Create Index [_updatedOn]')
     mongo.trade.stashes.create_index('_updatedOn')
+    print('├ Create Index [_insertedOn]')
     mongo.trade.stashes.create_index('_insertedOn')
+    print('├ Create Index [accountName]')
     mongo.trade.stashes.create_index('accountName')
+    print('├ Create Index [league]')
     mongo.trade.stashes.create_index('league')
+    print('└ Create Index [_item_ids]')
     mongo.trade.stashes.create_index('_item_ids')
 
     grand_total_stashes = 0
     grand_total_items = 0
     start_time = time.time()
     error_delay = 1
+    print('\nBuild stash indexes.')
     while True:
         t1 = time.time()
         try:
@@ -85,10 +113,26 @@ async def ingest():
                         del item[junk_key]
 
                 # Only insert items with notes in the item or stash.
-                if 'note' not in item and 'note' not in stash:
-                    items_to_forget.append(item['id'])
+                item_note = poe_lib.objects.Note(item.get('note', None))
+                stash_note = poe_lib.objects.Note(stash.get('stash', None))
+
+                if item_note.is_valid:
+                    item['_price'] = {
+                        'type': item_note.type,
+                        'unit': item_note.unit,
+                        'value': item_note.value,
+                    }
+                    bulk_item_operations.append(pymongo.ReplaceOne({'id': item['id']}, item, upsert=True))
+                elif stash_note.is_valid:
+                    item['_price'] = {
+                        'type': stash_note.type,
+                        'unit': stash_note.unit,
+                        'value': stash_note.value,
+                    }
+                    bulk_item_operations.append(pymongo.ReplaceOne({'id': item['id']}, item, upsert=True))
                 else:
-                    bulk_item_operations.append(pymongo.ReplaceOne({'id': item['id']},item, upsert=True))
+                    items_to_forget.append(item['id'])
+
 
             stash['_item_ids'] = [item['id'] for item in stash['items'] if item['id'] not in items_to_forget]
             del stash['items']
@@ -159,4 +203,4 @@ async def ingest():
             }
         )
 
-        await asyncio.sleep(1)
+        # await asyncio.sleep(0.5)

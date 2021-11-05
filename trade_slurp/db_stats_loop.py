@@ -17,7 +17,6 @@ async def db_stats():
 
     last_ninja_update = datetime.datetime.now() - datetime.timedelta(minutes = 5)
 
-
     while True:
         await asyncio.sleep(60)
         t1 = time.time()
