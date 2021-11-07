@@ -69,7 +69,7 @@ down: ## Stop all containers
 logs: ## Display logs (follow)
 	docker-compose \
         -f  docker-compose.yaml \
-        logs --follow --tail=20
+        logs --follow --tail=20 discord-bot trade-slurp
 
 debug-web: ## Start interactive python shell to debug with
 	docker-compose \

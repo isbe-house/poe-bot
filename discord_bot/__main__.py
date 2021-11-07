@@ -1,6 +1,7 @@
 import asyncio
 import datetime
 import os
+import logging
 
 import dyscord
 from dyscord.client import API
@@ -43,12 +44,12 @@ async def my_ready(ready, _, client):
     sc = register_command.add_option_sub_command(name='profile', description='Print your profile.')
 
     sc = register_command.add_option_sub_command(name='character', description='Show off your character.')
-    sc.add_option_typed(sc.COMMAND_OPTION.STRING, name='name', description='Character name.')
 
     sc = register_command.add_option_sub_command(name='price_stash', description='Calculate estimated value of a stash.')
     sc.add_option_typed(sc.COMMAND_OPTION.STRING, name='league', description='League stash is in', autocomplete=True, required=True)
     sc.add_option_typed(sc.COMMAND_OPTION.STRING, name='name', description='Stash name/regex.', required=True, autocomplete=True)
     sc.add_option_typed(sc.COMMAND_OPTION.BOOLEAN, name='full_stats', description='Should you be provided with full information?', required=False)
+    sc.add_option_typed(sc.COMMAND_OPTION.BOOLEAN, name='public', description='Can other people see this?', required=False)
 
     sc = register_command.add_option_sub_command(name='test', description='Test command, please ignore.')
 
@@ -63,14 +64,12 @@ async def my_ready(ready, _, client):
     #     assert command.id is not None
     #     await API.delete_global_application_command(command.id)
 
-
-Mongo.connect()
-
 dyscord.helper.CommandHandler.register_guild_callback('poe', poe_callback)
 
 async def raw_back(data):
     print(data)
 
 # client._register_raw_callback(raw_back)
-
+log = logging.getLogger('dyscord')
+log.setLevel(logging.INFO)
 client.run()

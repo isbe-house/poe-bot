@@ -10,7 +10,8 @@ import httpx
 
 from . import __version__
 
-from .objects import character, leagues, stash
+from .objects import character, leagues, stash, profile
+from . import log
 
 class API:
 
@@ -25,6 +26,8 @@ class API:
     AUTH_URL = 'https://www.pathofexile.com'
 
     _lock = asyncio.Lock()
+
+    log = log.Log()
 
     class ERROR_CODES(enum.IntEnum):
         ACCEPTED = 0
@@ -151,16 +154,15 @@ class API:
             return
 
         time_to_sleep = 0
-        if self.verbose:
-            print(headers)
+        self.log.debug('Handling rate limits.')
+        self.log.debug(headers)
 
         for rule in rules.split(','):
-            if self.verbose:
-                print(f'Handle limits for {rule}.')
+            self.log.debug(f'Handle limits for {rule}.')
 
             if 'Retry-After' in headers:
                 sleep_for = float(headers['Retry-After']) * 2
-                print(f'Encountered [Retry-After] header. Sleep for [{sleep_for}].')
+                self.log.debug(f'Encountered [Retry-After] header. Sleep for [{sleep_for}].')
                 await asyncio.sleep(sleep_for)
                 return
 
@@ -179,7 +181,7 @@ class API:
                 time_to_sleep = max(percent_hits * state[1] * 1.1, time_to_sleep)
 
         if time_to_sleep > 0.1:
-            print(f'Sleeping for {time_to_sleep} becuase of {rules}')
+            self.log.debug(f'Sleeping for {time_to_sleep} becuase of {rules}')
             await asyncio.sleep(time_to_sleep)
 
         return
@@ -237,7 +239,7 @@ class API:
 
         return leagues.League(r.json()['league'])
 
-    async def get_profile(self) -> dict:
+    async def get_profile(self) -> 'profile.Profile':
         url = self.BASE_URL + "/profile"
 
         hash_key = (url, str(self.get_headers()))
@@ -249,7 +251,7 @@ class API:
                 r = await self._invoke_method(method)
         self._call_hash[hash_key] = r
 
-        return r.json()
+        return profile.Profile(r.json())
 
     async def get_characters(self) -> List[character.Character]:
         url = self.BASE_URL + "/character"

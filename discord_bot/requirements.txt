@@ -1,5 +1,6 @@
-dyscord==0.5.1
+dyscord==0.6.1
 pymongo
+motor
 httpx
 cachetools
 python-dateutil==2.8.2

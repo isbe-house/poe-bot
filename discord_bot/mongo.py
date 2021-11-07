@@ -1,16 +1,11 @@
 import pymongo
+import motor.motor_asyncio
 import os
 from collections import defaultdict
 
 from typing import Optional
 
 class Mongo:
-
-    client: pymongo.MongoClient
-
-    @classmethod
-    def connect(cls):
-        cls.client = pymongo.MongoClient(os.environ['MONGO_URL'])
 
     @classmethod
     def defaulter(cls, input_dict: Optional[dict] = None):
@@ -21,3 +16,13 @@ class Mongo:
         new_dict = defaultdict(lambda: None)
         new_dict.update(input_dict)
         return new_dict
+
+    @classmethod
+    @property
+    def client(cls):
+        return pymongo.MongoClient(os.environ['MONGO_URL'])
+
+    @classmethod
+    @property
+    def async_client(cls):
+        return motor.motor_asyncio.AsyncIOMotorClient(os.environ['MONGO_URL'])

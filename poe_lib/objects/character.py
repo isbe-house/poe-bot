@@ -37,7 +37,7 @@ class Character(BasePOEObject):
             'passives': None,
         }
 
-    def save(self):
+    def save(self, account_name: str = None):
         client = Mongo.client
         data = {
             'id': self.id,
@@ -54,10 +54,13 @@ class Character(BasePOEObject):
             upsert=True,
         )
 
+        if account_name is None:
+            return
+
         if (old_data is not None) and (self.experience == old_data['experience']):
             return
 
-        print('influx_write')
+
         Influx.write(
             'characters',
             'stats',
@@ -66,6 +69,10 @@ class Character(BasePOEObject):
                 'experience': self.experience,
             },
             {
+                'id': self.id,
+                'class': self.class_,
                 'char_name': ''.join([i if ord(i) < 128 else '' for i in self.name]),
+                'account_name': ''.join([i if ord(i) < 128 else '' for i in account_name]),
+                'league': ''.join([i if ord(i) < 128 else '' for i in self.league]),
             },
         )

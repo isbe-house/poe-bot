@@ -2,3 +2,5 @@ httpx
 pymongo
 tqdm
 motor
+numpy
+scipy

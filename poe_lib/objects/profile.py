@@ -2,7 +2,7 @@ from typing import Any, Optional
 
 from .object_base_class import BasePOEObject
 
-class Character(BasePOEObject):
+class Profile(BasePOEObject):
     uuid: str = None  # string  UUIDv4 in canonical format
     name: str = None  #  string
     realm: Optional[str] = None  #  ?string  pc, xbox, or sony

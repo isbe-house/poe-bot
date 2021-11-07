@@ -5,9 +5,10 @@ class Log:
     '''Generalized logging class for easy import.'''
 
     log = logging.getLogger('poe_lib')
-    log.setLevel(logging.INFO)
+    log.setLevel(logging.ERROR)
     _ch = logging.StreamHandler()
     _formatter = logging.Formatter('{asctime} - {levelname} - {filename}:{lineno} - {funcName} - {message}', style='{')
+    _ch.setLevel(logging.DEBUG)
     _ch.setFormatter(_formatter)
     log.addHandler(_ch)
 

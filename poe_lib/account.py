@@ -1,5 +1,6 @@
 import enum
 from datetime import datetime, timedelta
+from typing import List
 
 from . import mongo, api as ext_api
 
@@ -15,6 +16,8 @@ class Account:
     created: datetime = None
     scopes: 'list[SCOPES]' = None
     redirect_url: str = None
+    poe_account_name: str = None
+    poe_character_ids = None  # type: List[str]
 
     def __init__(self, discord_user_id: str = None):
         self._loaded = False
@@ -48,6 +51,11 @@ class Account:
         updates.update({'refresh_token': self.refresh_token})
         updates.update({'created': self.created})
         updates.update({'scopes': [x.value for x in self.scopes]})
+        if self.poe_account_name:
+            updates.update({'poe_account_name': self.poe_account_name})
+        if self.poe_character_ids:
+            updates.update({'poe_character_ids': self.poe_character_ids})
+
 
         client.accounts.discord_accounts.find_one_and_update(
             {
@@ -71,11 +79,10 @@ class Account:
             },
             {
                 '$addToSet': {
-                    'characters': character_id
+                    'poe_character_ids': character_id
                 }
             },
         )
-
 
     def load(self):
         '''Load account from Mongo.'''
@@ -92,6 +99,8 @@ class Account:
         self.state = ACCOUNT_STATE[account_doc['state']]
         self.access_token = account_doc['access_token']
         self.access_token_expiration = account_doc['access_token_expiration']
+        self.poe_account_name = account_doc.get('poe_account_name', None)
+        self.poe_character_ids = account_doc.get('poe_character_ids', None)
 
     @property
     def bearer_token(self) -> str:

@@ -3,11 +3,13 @@ import os
 import time
 import datetime
 import json
+import logging
 
 import httpx
 import poe_lib
 import pymongo
 import re
+
 
 
 async def ingest():
@@ -19,6 +21,7 @@ async def ingest():
     if next_change_id is not None:
         next_change_id = next_change_id['settings']['next_change_id']
     api = poe_lib.api.API()
+    log = logging.getLogger('trade_slurp.ingest')
 
 
     print('\nBuild sold_items indexes.')
@@ -44,8 +47,10 @@ async def ingest():
     mongo.trade.items.create_index([('_stash_id', 'hashed')])
     print('├ Create Index [extended.category]')
     mongo.trade.items.create_index('extended.category')
-    print('├ Create Index [note]')
-    mongo.trade.items.create_index('note')
+    print('├ Create Index [extended.subcategories]')
+    mongo.trade.items.create_index('extended.subcategories')
+    # print('├ Create Index [note]')
+    # mongo.trade.items.create_index('note')
     print('├ Create Index [_price]')
     mongo.trade.items.create_index('_price.unit')
     mongo.trade.items.create_index('_price.value')
